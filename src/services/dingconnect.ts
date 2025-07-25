@@ -4,42 +4,42 @@ import { ALL_OPERATORS } from '../constants/countries';
 // Cache para evitar recargas duplicadas
 const rechargeCache = new Map<string, Promise<any>>();
 
-class ReloadlyService {
-  private clientId: string;
-  private clientSecret: string;
+class DingConnectService {
+  private apiKey: string;
+  private apiSecret: string;
 
   constructor() {
-    this.clientId = import.meta.env.VITE_RELOADLY_CLIENT_ID || '';
-    this.clientSecret = import.meta.env.VITE_RELOADLY_CLIENT_SECRET || '';
+    this.apiKey = import.meta.env.VITE_DINGCONNECT_API_KEY || '';
+    this.apiSecret = import.meta.env.VITE_DINGCONNECT_API_SECRET || '';
     
-    console.log('🚨🚨🚨 Reloadly: MODO PRODUÇÃO ATIVADO 🚨🚨🚨');
-    console.log('📱 Reloadly: RECARGAS REAIS serão enviadas para os números!');
-    console.log('💰 Reloadly: Saldo pré-pago será DEBITADO da sua conta!');
-    console.log('🔥 Reloadly: TESTE REAL - Números receberão créditos de verdade!');
+    console.log('🚨🚨🚨 DingConnect: MODO PRODUÇÃO ATIVADO 🚨🚨🚨');
+    console.log('📱 DingConnect: RECARGAS REAIS serão enviadas para os números!');
+    console.log('💰 DingConnect: Saldo pré-pago será DEBITADO da sua conta!');
+    console.log('🔥 DingConnect: TESTE REAL - Números receberão créditos de verdade!');
     
-    console.log('🔐 Reloadly: Configuração OAuth2', {
-      hasClientId: !!this.clientId,
-      hasClientSecret: !!this.clientSecret,
-      clientIdLength: this.clientId?.length || 0,
-      clientSecretLength: this.clientSecret?.length || 0,
-      note: 'Usando OAuth2 client_credentials flow'
+    console.log('🔐 DingConnect: Configuração API', {
+      hasApiKey: !!this.apiKey,
+      hasApiSecret: !!this.apiSecret,
+      apiKeyLength: this.apiKey?.length || 0,
+      apiSecretLength: this.apiSecret?.length || 0,
+      note: 'Usando autenticação Bearer Token + X-API-Secret'
     });
   }
 
   isProperlyConfigured(): boolean {
-    return this.clientId.length >= 20 && 
-           this.clientSecret.length >= 40 &&
-           this.clientId !== 'your-reloadly-client-id' &&
-           this.clientSecret !== 'your-reloadly-client-secret';
+    return this.apiKey.length >= 20 && 
+           this.apiSecret.length >= 40 &&
+           this.apiKey !== 'your-dingconnect-api-key' &&
+           this.apiSecret !== 'your-dingconnect-api-secret';
   }
 
   async getOperators(countryCode: string = 'HT') {
     try {
       if (!this.isProperlyConfigured()) {
-        throw new Error('Reloadly não configurado. Configure VITE_RELOADLY_CLIENT_ID e VITE_RELOADLY_CLIENT_SECRET com credenciais OAuth2 válidas.');
+        throw new Error('DingConnect não configurado. Configure VITE_DINGCONNECT_API_KEY e VITE_DINGCONNECT_API_SECRET com credenciais válidas.');
       }
 
-      const apiUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/reloadly-operators`;
+      const apiUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/dingconnect-operators`;
       
       const response = await fetch(apiUrl, {
         method: 'POST',
@@ -57,12 +57,12 @@ class ReloadlyService {
       const data = await response.json();
       
       if (!data.success) {
-        throw new Error(data.error || 'Erro na API Reloadly');
+        throw new Error(data.error || 'Erro na API DingConnect');
       }
 
       return data.data;
     } catch (error) {
-      console.error('❌ Reloadly: Erro ao buscar operadoras:', error);
+      console.error('❌ DingConnect: Erro ao buscar operadoras:', error);
       throw error;
     }
   }
@@ -83,7 +83,7 @@ class ReloadlyService {
     );
     
     if (existingRecharge) {
-      console.log('⚠️ Reloadly: Recarga duplicada detectada, aguardando resultado anterior...', {
+      console.log('⚠️ DingConnect: Recarga duplicada detectada, aguardando resultado anterior...', {
         phoneNumber,
         operatorId,
         amount,
@@ -95,12 +95,11 @@ class ReloadlyService {
         return await rechargeCache.get(existingRecharge)!;
       } catch (error) {
         console.log('⚠️ DingConnect: Erro na recarga anterior, processando nova...');
-        console.log('⚠️ Reloadly: Erro na recarga anterior, processando nova...');
       }
     }
 
     try {
-      console.log('🔄 Reloadly: Processando recarga...', { 
+      console.log('🔄 DingConnect: Processando recarga...', { 
         phoneNumber, 
         operatorId, 
         amount, 
@@ -110,11 +109,11 @@ class ReloadlyService {
       });
 
       if (!this.isProperlyConfigured()) {
-        console.error('❌ Reloadly: Não configurado corretamente');
+        console.error('❌ DingConnect: Não configurado corretamente');
         return {
           success: false,
-          error: 'RELOADLY_NOT_CONFIGURED',
-          message: 'Configure VITE_RELOADLY_CLIENT_ID e VITE_RELOADLY_CLIENT_SECRET'
+          error: 'DINGCONNECT_NOT_CONFIGURED',
+          message: 'Configure VITE_DINGCONNECT_API_KEY e VITE_DINGCONNECT_API_SECRET'
         };
       }
 
@@ -123,7 +122,7 @@ class ReloadlyService {
       // Get operator to determine expected phone length
       const operator = ALL_OPERATORS.find(op => op.id === operatorId);
       if (!operator) {
-        console.error('❌ Reloadly: Operadora não encontrada', { operatorId });
+        console.error('❌ DingConnect: Operadora não encontrada', { operatorId });
         return {
           success: false,
           error: 'OPERATOR_NOT_FOUND',
@@ -138,7 +137,7 @@ class ReloadlyService {
       }
       
       if (cleanPhone.length !== expectedLength) {
-        console.error('❌ Reloadly: Número inválido', { 
+        console.error('❌ DingConnect: Número inválido', { 
           phoneNumber, 
           cleanPhone, 
           expectedLength,
@@ -152,9 +151,9 @@ class ReloadlyService {
         };
       }
 
-      const apiUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/reloadly-recharge`;
+      const apiUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/dingconnect-recharge`;
       
-      console.log('📤 Reloadly: Enviando para Edge Function', {
+      console.log('📤 DingConnect: Enviando para Edge Function', {
         url: apiUrl,
         phoneNumber: cleanPhone,
         operatorId,
@@ -176,14 +175,14 @@ class ReloadlyService {
           currency
         })
       }).then(async (response) => {
-        console.log('📥 Reloadly: Resposta da Edge Function', {
+        console.log('📥 DingConnect: Resposta da Edge Function', {
           status: response.status,
           ok: response.ok,
           statusText: response.statusText
         });
         
         const responseData = await response.json();
-        console.log('📄 Reloadly: Dados da resposta', {
+        console.log('📄 DingConnect: Dados da resposta', {
           success: responseData.success,
           error: responseData.error,
           message: responseData.message,
@@ -191,23 +190,23 @@ class ReloadlyService {
         });
         
         if (!response.ok) {
-          console.error('❌ Reloadly: Erro na Edge Function', {
+          console.error('❌ DingConnect: Erro na Edge Function', {
             status: response.status,
             statusText: response.statusText,
             error: responseData.error,
             message: responseData.message,
             details: responseData.details,
-            clientIdConfigured: !!this.clientId,
-            clientSecretConfigured: !!this.clientSecret
+            apiKeyConfigured: !!this.apiKey,
+            apiSecretConfigured: !!this.apiSecret
           });
           
-          // Melhor tratamento de erro OAuth2
-          if (response.status === 400 && responseData.error === 'OAUTH_TOKEN_FAILED') {
-            const errorMessage = `Erro OAuth2: Credenciais Reloadly inválidas. Verifique se as credenciais no Supabase estão corretas.`;
+          // Melhor tratamento de erro de autenticação
+          if (response.status === 400 && responseData.error === 'AUTH_FAILED') {
+            const errorMessage = `Erro de autenticação: Credenciais DingConnect inválidas. Verifique se as credenciais no Supabase estão corretas.`;
             
             return {
               success: false,
-              error: 'RELOADLY_AUTH_FAILED',
+              error: 'DINGCONNECT_AUTH_FAILED',
               message: errorMessage
             };
           }
@@ -217,12 +216,12 @@ class ReloadlyService {
           return {
             ...responseData,
             message: errorMessage,
-            error: responseData.error || 'RELOADLY_API_ERROR'
+            error: responseData.error || 'DINGCONNECT_API_ERROR'
           };
         }
 
         if (responseData.success) {
-          console.log('✅ Reloadly: Recarga processada com sucesso', {
+          console.log('✅ DingConnect: Recarga processada com sucesso', {
             transactionId: responseData.transactionId,
             status: responseData.status,
             customIdentifier: responseData.customIdentifier,
@@ -230,7 +229,7 @@ class ReloadlyService {
             message: responseData.message || 'Recarga processada com sucesso'
           });
         } else {
-          console.error('❌ Reloadly: Recarga falhou', {
+          console.error('❌ DingConnect: Recarga falhou', {
             error: responseData.error,
             message: responseData.message,
             details: responseData.details,
@@ -258,7 +257,7 @@ class ReloadlyService {
 
       return responseData;
     } catch (error) {
-      console.error('❌ Reloadly: Erro crítico', {
+      console.error('❌ DingConnect: Erro crítico', {
         error: error instanceof Error ? error.message : error,
         stack: error instanceof Error ? error.stack : undefined,
         errorType: error instanceof Error ? error.constructor.name : typeof error
@@ -270,7 +269,7 @@ class ReloadlyService {
       return {
         success: false,
         error: 'API_ERROR',
-        message: error instanceof Error ? error.message : 'Erro crítico na API Reloadly'
+        message: error instanceof Error ? error.message : 'Erro crítico na API DingConnect'
       };
     }
   }
@@ -279,8 +278,8 @@ class ReloadlyService {
     return {
       mode: 'production',
       isConfigured: this.isProperlyConfigured(),
-      hasClientId: !!this.clientId,
-      hasClientSecret: !!this.clientSecret,
+      hasApiKey: !!this.apiKey,
+      hasApiSecret: !!this.apiSecret,
       isLive: true,
       isTest: false,
       productionMode: true
@@ -288,4 +287,4 @@ class ReloadlyService {
   }
 }
 
-export const reloadlyService = new ReloadlyService();
+export const dingconnectService = new DingConnectService();

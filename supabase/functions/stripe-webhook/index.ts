@@ -89,8 +89,8 @@ serve(async (req) => {
         }).eq('id', transactionId);
 
         console.log('🚀 Stripe Webhook: Iniciando recarga via Reloadly...');
-        const reloadlyRechargeUrl = `${supabaseUrl}/functions/v1/reloadly-recharge`;
-        const reloadlyResponse = await fetch(reloadlyRechargeUrl, {
+        const dingconnectRechargeUrl = `${supabaseUrl}/functions/v1/dingconnect-recharge`;
+        const dingconnectResponse = await fetch(dingconnectRechargeUrl, {
           method: 'POST',
           headers: {
             'Authorization': `Bearer ${supabaseServiceRoleKey}`, // Use service role key for internal function call
@@ -104,19 +104,19 @@ serve(async (req) => {
           }),
         });
 
-        const reloadlyData = await reloadlyResponse.json();
+        const dingconnectData = await dingconnectResponse.json();
 
-        if (reloadlyResponse.ok && reloadlyData.success) {
-          console.log('✅ Stripe Webhook: Recarga Reloadly bem-sucedida! Atualizando transação para success.');
+        if (dingconnectResponse.ok && dingconnectData.success) {
+          console.log('✅ Stripe Webhook: Recarga DingConnect bem-sucedida! Atualizando transação para success.');
           await supabase.from('transactions').update({
             status: 'success',
-            dingconnect_transaction_id: reloadlyData.transactionId,
+            dingconnect_transaction_id: dingconnectData.transactionId,
             error_message: null,
             updated_at: new Date().toISOString(),
           }).eq('id', transactionId);
         } else {
-          console.error('❌ Stripe Webhook: Recarga Reloadly falhou! Iniciando reembolso...');
-          const errorMessage = reloadlyData.message || reloadlyData.error || 'Erro desconhecido na recarga Reloadly';
+          console.error('❌ Stripe Webhook: Recarga DingConnect falhou! Iniciando reembolso...');
+          const errorMessage = dingconnectData.message || dingconnectData.error || 'Erro desconhecido na recarga DingConnect';
 
           // Initiate refund
           const stripeRefundUrl = `${supabaseUrl}/functions/v1/stripe-refund`;
@@ -145,7 +145,7 @@ serve(async (req) => {
             console.error('❌ Stripe Webhook: Reembolso falhou! Atualizando transação para failed.');
             await supabase.from('transactions').update({
               status: 'failed',
-              error_message: `Recarga falhou: ${errorMessage}. Erro no reembolso: ${refundData.message || refundData.error || 'Erro desconhecido'}.`,
+              error_message: `Recarga DingConnect falhou: ${errorMessage}. Erro no reembolso: ${refundData.message || refundData.error || 'Erro desconhecido'}.`,
               updated_at: new Date().toISOString(),
             }).eq('id', transactionId);
           }

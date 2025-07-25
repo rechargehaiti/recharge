@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { RechargeData, Transaction } from '../types';
-import { reloadlyService } from '../services/dingconnect';
+import { dingconnectService } from '../services/dingconnect';
 import { mercadopagoService } from '../services/mercadopago';
 import { stripeService } from '../services/stripe';
 import { supabaseService } from '../services/supabase';
@@ -281,7 +281,7 @@ export const useRecharge = () => {
       
       
       // Implementar timeout para recarga
-      const rechargePromise = reloadlyService.performRecharge(
+      const rechargePromise = dingconnectService.performRecharge(
         rechargeData.phoneNumber,
         rechargeData.operator,
         dingconnectAmount,
@@ -294,7 +294,7 @@ export const useRecharge = () => {
       
       const rechargeResult = await Promise.race([rechargePromise, timeoutPromise]);
 
-      console.log('📥 useRecharge: Resultado da recarga Reloadly:', {
+      console.log('📥 useRecharge: Resultado da recarga DingConnect:', {
         success: rechargeResult.success,
         transactionId: rechargeResult.transactionId,
         isDeferred: rechargeResult.isDeferred,

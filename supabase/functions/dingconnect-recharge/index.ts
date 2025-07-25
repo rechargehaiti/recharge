@@ -14,30 +14,30 @@ serve(async (req) => {
   try {
     const { phoneNumber, operatorId, amount, currency = 'BRL' } = await req.json()
 
-    const clientId = Deno.env.get('DINGCONNECT_CLIENT_ID')
-    const clientSecret = Deno.env.get('DINGCONNECT_CLIENT_SECRET')
+    const apiKey = Deno.env.get('DINGCONNECT_API_KEY')
+    const apiSecret = Deno.env.get('DINGCONNECT_API_SECRET')
     
-    const isProperlyConfigured = clientId && 
-      clientSecret && 
-      clientId !== 'your-dingconnect-client-id' && 
-      clientSecret !== 'your-dingconnect-client-secret' &&
-      clientId.length >= 20 &&
-      clientSecret.length >= 40;
+    const isProperlyConfigured = apiKey && 
+      apiSecret && 
+      apiKey !== 'your-dingconnect-api-key' && 
+      apiSecret !== 'your-dingconnect-api-secret' &&
+      apiKey.length >= 20 &&
+      apiSecret.length >= 40;
 
     if (!isProperlyConfigured) {
-      console.error('🚨 Reloadly: Configuração inválida', {
-        hasClientId: !!clientId,
-        hasClientSecret: !!clientSecret,
-        clientIdLength: clientId?.length || 0,
-        clientSecretLength: clientSecret?.length || 0,
+      console.error('🚨 DingConnect: Configuração inválida', {
+        hasApiKey: !!apiKey,
+        hasApiSecret: !!apiSecret,
+        apiKeyLength: apiKey?.length || 0,
+        apiSecretLength: apiSecret?.length || 0,
         errorType: 'CONFIGURATION_ERROR'
       })
       
       return new Response(
         JSON.stringify({
           success: false,
-          error: 'RELOADLY_NOT_CONFIGURED',
-          message: 'Reloadly não configurado: Configure RELOADLY_CLIENT_ID e RELOADLY_CLIENT_SECRET com credenciais OAuth2 válidas'
+          error: 'DINGCONNECT_NOT_CONFIGURED',
+          message: 'DingConnect não configurado: Configure DINGCONNECT_API_KEY e DINGCONNECT_API_SECRET com credenciais válidas'
         }),
         {
           status: 400,
@@ -47,7 +47,7 @@ serve(async (req) => {
     }
 
     if (!phoneNumber || !operatorId || !amount) {
-      console.error('❌ Reloadly: Parâmetros faltando', {
+      console.error('❌ DingConnect: Parâmetros faltando', {
         phoneNumber: !!phoneNumber,
         operatorId: !!operatorId,
         amount: !!amount,
@@ -67,70 +67,7 @@ serve(async (req) => {
       )
     }
 
-    // Step 1: Get OAuth2 access token
-    console.log('🔐 Reloadly: Obtendo access token OAuth2...')
-    
-    const tokenResponse = await fetch('https://auth.reloadly.com/oauth/token', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json'
-      },
-      body: JSON.stringify({
-        client_id: clientId,
-        client_secret: clientSecret,
-        grant_type: 'client_credentials',
-        audience: 'https://topups-hs256.reloadly.com'
-      })
-    })
-
-    if (!tokenResponse.ok) {
-      const tokenError = await tokenResponse.text()
-      console.error('❌ Reloadly: Erro ao obter token OAuth2', {
-        status: tokenResponse.status,
-        statusText: tokenResponse.statusText,
-        error: tokenError
-      })
-      
-      return new Response(
-        JSON.stringify({
-          success: false,
-          error: 'OAUTH_TOKEN_FAILED',
-          message: `Erro ao obter token OAuth2: ${tokenResponse.status} ${tokenResponse.statusText}`,
-          details: tokenError
-        }),
-        {
-          status: 400,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-        }
-      )
-    }
-
-    const tokenData = await tokenResponse.json()
-    const accessToken = tokenData.access_token
-
-    if (!accessToken) {
-      console.error('❌ Reloadly: Access token não recebido', tokenData)
-      return new Response(
-        JSON.stringify({
-          success: false,
-          error: 'NO_ACCESS_TOKEN',
-          message: 'Access token não foi retornado pela API OAuth2',
-          details: tokenData
-        }),
-        {
-          status: 400,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-        }
-      )
-    }
-
-    console.log('✅ Reloadly: Access token obtido com sucesso', {
-      tokenType: tokenData.token_type,
-      expiresIn: tokenData.expires_in,
-      scope: tokenData.scope
-    })
-    console.log('🔄 Reloadly: Iniciando recarga', {
+    console.log('🔄 DingConnect: Iniciando recarga', {
       phoneNumber,
       operatorId,
       amount,
@@ -138,7 +75,7 @@ serve(async (req) => {
       timestamp: new Date().toISOString()
     })
     
-    // Step 2: Mapear IDs internos para ProviderCodes do Reloadly
+    // Mapear IDs internos para ProviderCodes do DingConnect
     const providerCodeMap: { [key: string]: string } = {
       'D7HT': '173', // Digicel Haiti
       'NMHT': '174', // Natcom Haiti
@@ -147,49 +84,50 @@ serve(async (req) => {
       'VVDO': '613'  // Viva Dominican Republic
     };
     
-    const reloadlyOperatorId = providerCodeMap[operatorId] || operatorId;
+    const dingconnectOperatorId = providerCodeMap[operatorId] || operatorId;
     
-    // Step 3: Preparar dados da recarga para Reloadly
-    const topupData = {
-      operatorId: parseInt(reloadlyOperatorId),
-      amount: amount,
-      useLocalAmount: false,
-      customIdentifier: `recharge-${Date.now()}`,
-      recipientPhone: {
-        countryCode: operatorId.includes('HT') ? 'HT' : 'DO',
-        number: phoneNumber
-      }
+    // Preparar dados da recarga para DingConnect
+    const rechargeData = {
+      OperatorId: parseInt(dingconnectOperatorId),
+      Amount: amount,
+      Currency: currency,
+      PhoneNumber: phoneNumber,
+      Reference: `recharge-${Date.now()}`,
+      CountryCode: operatorId.includes('HT') ? 'HT' : 'DO'
     }
 
-    console.log('📤 Reloadly: Enviando dados para API', {
-      operatorId: topupData.operatorId,
-      amount: topupData.amount,
-      customIdentifier: topupData.customIdentifier,
-      recipientPhone: topupData.recipientPhone
+    console.log('📤 DingConnect: Enviando dados para API', {
+      operatorId: rechargeData.OperatorId,
+      amount: rechargeData.Amount,
+      currency: rechargeData.Currency,
+      phoneNumber: rechargeData.PhoneNumber,
+      reference: rechargeData.Reference,
+      countryCode: rechargeData.CountryCode
     })
 
-    // Step 4: Fazer requisição para Reloadly API
-    const response = await fetch('https://topups.reloadly.com/topups', {
+    // Fazer requisição para DingConnect API
+    const response = await fetch('https://api.dingconnect.com/api/V1/SendTransfer', {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${accessToken}`,
+        'Authorization': `Bearer ${apiKey}`,
+        'X-API-Secret': apiSecret,
         'Content-Type': 'application/json',
         'Accept': 'application/json'
       },
-      body: JSON.stringify(topupData)
+      body: JSON.stringify(rechargeData)
     })
 
-    console.log('📥 Reloadly: Resposta recebida', {
+    console.log('📥 DingConnect: Resposta recebida', {
       status: response.status,
       statusText: response.statusText,
       ok: response.ok
     })
 
     const responseText = await response.text()
-    console.log('📄 Reloadly: Response text', responseText.substring(0, 500))
+    console.log('📄 DingConnect: Response text', responseText.substring(0, 500))
 
     if (!response.ok) {
-      console.error('❌ Reloadly: API retornou erro HTTP', {
+      console.error('❌ DingConnect: API retornou erro HTTP', {
         status: response.status,
         statusText: response.statusText,
         responseText: responseText.substring(0, 500)
@@ -205,13 +143,13 @@ serve(async (req) => {
       const apiErrorMsg = errorData.message || 
                          errorData.error_description ||
                          `Erro ${response.status}` ||
-                         'Erro desconhecido na API Reloadly';
+                         'Erro desconhecido na API DingConnect';
       
       return new Response(
         JSON.stringify({
           success: false,
           error: errorData.error || 'RECHARGE_FAILED',
-          message: `Falha na recarga Reloadly: ${apiErrorMsg}`,
+          message: `Falha na recarga DingConnect: ${apiErrorMsg}`,
           details: errorData
         }),
         {
@@ -224,9 +162,9 @@ serve(async (req) => {
     let responseData
     try {
       responseData = JSON.parse(responseText)
-      console.log('✅ Reloadly: JSON parseado com sucesso')
+      console.log('✅ DingConnect: JSON parseado com sucesso')
     } catch (parseError) {
-      console.error('❌ Reloadly: Erro ao parsear JSON', {
+      console.error('❌ DingConnect: Erro ao parsear JSON', {
         error: parseError.message,
         responsePreview: responseText.substring(0, 200)
       })
@@ -235,7 +173,7 @@ serve(async (req) => {
         JSON.stringify({
           success: false,
           error: 'PARSE_ERROR',
-          message: `Erro ao processar resposta JSON da API Reloadly: ${parseError.message}`,
+          message: `Erro ao processar resposta JSON da API DingConnect: ${parseError.message}`,
           details: { 
             parseError: parseError.message,
             responsePreview: responseText.substring(0, 200)
@@ -249,30 +187,31 @@ serve(async (req) => {
     }
 
     // Handle successful response
-    console.log('✅ Reloadly: Recarga processada com sucesso', {
-      transactionId: responseData.transactionId,
-      status: responseData.status,
-      customIdentifier: responseData.customIdentifier
+    console.log('✅ DingConnect: Recarga processada com sucesso', {
+      transactionId: responseData.TransactionId,
+      status: responseData.Status,
+      reference: responseData.Reference
     })
     
     return new Response(
       JSON.stringify({
         success: true,
-        transactionId: responseData.transactionId?.toString(),
-        message: `Recarga processada com sucesso - ID: ${responseData.transactionId}`,
+        transactionId: responseData.TransactionId?.toString(),
+        message: `Recarga processada com sucesso - ID: ${responseData.TransactionId}`,
         productionMode: true,
-        status: responseData.status,
-        customIdentifier: responseData.customIdentifier,
-        operatorTransactionId: responseData.operatorTransactionId,
-        reloadlyData: responseData,
-        isDeferred: false
+        status: responseData.Status,
+        reference: responseData.Reference,
+        operatorTransactionId: responseData.OperatorTransactionId,
+        dingconnectData: responseData,
+        isDeferred: responseData.IsDeferred || false,
+        correlationId: responseData.CorrelationId
       }),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       }
     )
   } catch (error) {
-    console.error('❌ Reloadly: Erro crítico', {
+    console.error('❌ DingConnect: Erro crítico', {
       error: error.message,
       stack: error.stack,
       errorType: error.constructor.name,
@@ -283,7 +222,7 @@ serve(async (req) => {
       JSON.stringify({
         success: false,
         error: 'API_ERROR',
-        message: `Erro crítico na API Reloadly: ${error.message || 'Erro desconhecido'}`,
+        message: `Erro crítico na API DingConnect: ${error.message || 'Erro desconhecido'}`,
         details: error.stack
       }),
       {

@@ -29,7 +29,7 @@ export const HomePage: React.FC<HomePageProps> = ({ onStartRecharge, onViewHisto
         </div>
         <div className="bg-white p-4 rounded-lg border border-gray-200 text-center">
           <CreditCard className="h-6 w-6 text-green-500 mx-auto mb-2" />
-          <p className="text-sm font-medium text-gray-700">Reloadly</p>
+          <p className="text-sm font-medium text-gray-700">DingConnect</p>
           <p className="text-xs text-gray-500">Saldo pré-pago</p>
         </div>
       </div>
@@ -73,16 +73,16 @@ export const HomePage: React.FC<HomePageProps> = ({ onStartRecharge, onViewHisto
         </div>
         
         <div className="bg-purple-50 p-4 rounded-lg border border-purple-200">
-          <h3 className="font-semibold text-purple-800 mb-1">Saldo Reloadly</h3>
+          <h3 className="font-semibold text-purple-800 mb-1">Saldo DingConnect</h3>
           <p className="text-sm text-purple-700">
-            🚨 MODO PRODUÇÃO: Recargas REAIS usando saldo pré-pago Reloadly
+            🚨 MODO PRODUÇÃO: Recargas REAIS usando saldo pré-pago DingConnect
           </p>
         </div>
         
         <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
           <h3 className="font-semibold text-blue-800 mb-1">Modo de Teste</h3>
           <p className="text-sm text-blue-700">
-            🧪 PIX: Simulado (sem cobrança) | 📱 Reloadly: REAL (com saldo)
+            🧪 PIX: Simulado (sem cobrança) | 📱 DingConnect: REAL (com saldo)
           </p>
         </div>
       </div>
